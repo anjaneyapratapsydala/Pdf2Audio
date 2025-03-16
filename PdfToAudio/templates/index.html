@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Audio Converter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PDF to Audio Converter</h1>
+            <p>Convert your PDF documents to audio files instantly</p>
+        </header>
+
+        <main>
+            <div class="upload-container" id="uploadContainer">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <input type="file" id="pdfInput" accept=".pdf" hidden>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-content">
+                            <span class="icon">📁</span>
+                            <h3>Drag & Drop PDF File</h3>
+                            <p>or <span class="browse-link">browse files</span></p>
+                            <p class="file-info" id="fileName"></p>
+                        </div>
+                    </div>
+                    <button type="submit" class="convert-btn" disabled>
+                        Convert to Audio
+                    </button>
+                </form>
+            </div>
+
+            <div class="status-container hidden" id="statusContainer">
+                <div class="spinner"></div>
+                <p class="status-text">Processing your document...</p>
+            </div>
+
+            <div class="result-container hidden" id="resultContainer">
+                <h2>Conversion Complete!</h2>
+                <div class="audio-container">
+                    <audio controls id="audioPlayer"></audio>
+                    <a class="download-btn" id="downloadLink">
+                        Download Audio File
+                    </a>
+                </div>
+                <button class="reset-btn" id="resetButton">
+                    Convert Another File
+                </button>
+            </div>
+
+            <div class="error-container hidden" id="errorContainer">
+                <span class="error-icon">⚠️</span>
+                <p class="error-message" id="errorMessage"></p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const pdfInput = document.getElementById('pdfInput');
+        const dropZone = document.getElementById('dropZone');
+        const uploadForm = document.getElementById('uploadForm');
+        const convertBtn = document.querySelector('.convert-btn');
+        const fileName = document.getElementById('fileName');
+        const statusContainer = document.getElementById('statusContainer');
+        const resultContainer = document.getElementById('resultContainer');
+        const errorContainer = document.getElementById('errorContainer');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const downloadLink = document.getElementById('downloadLink');
+        const resetButton = document.getElementById('resetButton');
+
+       
+        dropZone.addEventListener('click', () => pdfInput.click());
+        
+        pdfInput.addEventListener('change', handleFileSelect);
+        
+        ['dragenter', 'dragover'].forEach(event => {
+            dropZone.addEventListener(event, highlightDropZone);
+        });
+        
+        ['dragleave', 'drop'].forEach(event => {
+            dropZone.addEventListener(event, unhighlightDropZone);
+        });
+        
+        dropZone.addEventListener('drop', handleDrop);
+
+        uploadForm.addEventListener('submit', handleFormSubmit);
+        resetButton.addEventListener('click', resetForm);
+
+        function highlightDropZone(e) {
+            e.preventDefault();
+            dropZone.classList.add('active');
+        }
+
+        function unhighlightDropZone(e) {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                pdfInput.files = files;
+                handleFileSelect();
+            }
+        }
+
+        function handleFileSelect() {
+            if (pdfInput.files.length > 0) {
+                fileName.textContent = pdfInput.files[0].name;
+                convertBtn.disabled = false;
+                errorContainer.classList.add('hidden');
+            }
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            if (!pdfInput.files.length) return;
+            
+            statusContainer.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            errorContainer.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('file', pdfInput.files[0]);
+
+            try {
+                const response = await fetch('/convert', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Conversion failed');
+                }
+
+                statusContainer.classList.add('hidden');
+                audioPlayer.src = data.audio_url;
+                downloadLink.href = data.audio_url;
+                downloadLink.download = data.filename;
+                resultContainer.classList.remove('hidden');
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function resetForm() {
+            pdfInput.value = '';
+            fileName.textContent = '';
+            convertBtn.disabled = true;
+            resultContainer.classList.add('hidden');
+            errorContainer.classList.add('hidden');
+            audioPlayer.src = '';
+        }
+
+        function showError(message) {
+            statusContainer.classList.add('hidden');
+            errorContainer.classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = message;
+        }
+    </script>
+</body>
+</html>
